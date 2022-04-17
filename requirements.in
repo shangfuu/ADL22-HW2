@@ -1,0 +1,16 @@
+# requirements
+torch==1.10.2
+tensorflow==2.3.0
+pytorch-lightning==1.5.10
+spacy==3.2.2
+nltk==3.7
+# seqeval==1.2.2
+sentencepiece==0.1.96
+tqdm
+numpy
+pandas
+scikit-learn==1.0.2
+transformers==4.17.0
+datasets==2.0.0
+accelerate==0.6.1
+
