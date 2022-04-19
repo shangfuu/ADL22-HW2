@@ -1,24 +1,14 @@
-from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Optional, Union
-import os
-import logging
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
 import json
-import math
 
 from datasets import DatasetDict, load_dataset, Dataset
 from accelerate import Accelerator
 from transformers import (AutoTokenizer,
-                          TrainingArguments, 
                           default_data_collator, 
                           get_cosine_schedule_with_warmup,
+                          AutoModelForMultipleChoice,
                           SchedulerType)
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.file_utils import PaddingStrategy
-from transformers.trainer_utils import get_last_checkpoint
-from transformers import AutoModelForMultipleChoice, TrainingArguments, Trainer
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -26,7 +16,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 def preprocess(dataset, context):
@@ -90,14 +80,14 @@ def train():
     
     # preprocess
     tokenizer, processed_datasets = preprocess(dataset, context)
-    print(processed_datasets["train"][0])
+    # print(processed_datasets["train"][0])
     # print(len(tokenized_dataset["train"][0]["attention_mask"][0]))
     # print(len(tokenized_dataset["train"][0]["token_type_ids"][0]))
     # print(len(tokenized_dataset["train"][0]["input_ids"][0]))
 
-    tokenizer.save_pretrained("./models/tokenizer/")
+    # tokenizer.save_pretrained("./models/tokenizer/")
+    tokenizer.save_pretrained(args.tokenizer_path)
     # tokenizer2 = AutoTokenizer.from_pretrained("./models/tokenizer/")
-
 
     # Dataset and Dataloader
     train_dataset = processed_datasets["train"]
@@ -113,29 +103,30 @@ def train():
     model.resize_token_embeddings(len(tokenizer))
     model.to(args.device)
     
-    # optimizer
-    # Split weights in two groups, one with weight decay and the other not.
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
+    ## optimizer
+    ## Split weights in two groups, one with weight decay and the other not.
+    # no_decay = ["bias", "LayerNorm.weight"]
+    # optimizer_grouped_parameters = [
+    #     {
+    #         "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+    #         "weight_decay": args.weight_decay,
+    #     },
+    #     {
+    #         "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+    #         "weight_decay": 0.0,
+    #     },
+    # ]
     
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)
+    # optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)
+    optimizer = AdamW(model.parameters(), lr=args.lr)
     
     # print(len(train_dataloader))
-    print(len(train_dataset))
+    # print(len(train_dataset))
     total_step = len(train_dataset) * args.num_epoch // (args.batch_size * args.accum_steps)
     warmup_step = total_step * 0.06
     
     scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_step, total_step)
-    model, optimizer, train_dataloader, eval_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, eval_dataloader, scheduler)
+    # model, optimizer, train_dataloader, eval_dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, eval_dataloader, scheduler)
     
     best_dev_loss = 1e10
     print("Start Training")
@@ -144,8 +135,9 @@ def train():
         
         print(f"\nEpoch: {epoch+1} / {args.num_epoch}")
         train_loss, train_acc = 0, 0
-        for batch_step, batch_data in enumerate(tqdm(train_dataloader, desc="Train")):
-            input_ids, token_type_ids, attention_mask, labels = batch_data.values()
+        for batch_step, batch_datas in enumerate(tqdm(train_dataloader, desc="Train")):
+            input_ids, token_type_ids, attention_mask, labels = [b_data.to(args.device) for b_data in batch_datas.values()]
+            # input_ids, token_type_ids, attention_mask, labels = batch_data.values()
             # outputs = model(**batch_data)
             outputs = model(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, labels=labels)
             loss = outputs.loss
@@ -169,9 +161,10 @@ def train():
 
         model.eval()
         dev_acc, dev_loss = 0, 0
-        for batch_step, batch_data in enumerate(tqdm(eval_dataloader, desc="Valid")):
+        for batch_step, batch_datas in enumerate(tqdm(eval_dataloader, desc="Valid")):
             with torch.no_grad():
-                input_ids, token_type_ids, attention_mask, labels = batch_data.values()
+                # input_ids, token_type_ids, attention_mask, labels = batch_data.values()
+                input_ids, token_type_ids, attention_mask, labels = [b_data.to(args.device) for b_data in batch_datas.values()]
 
                 outputs = model(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, labels=labels)
                 loss = outputs.loss
@@ -179,8 +172,8 @@ def train():
                 dev_loss += loss.detach().float()
 
                 predictions = outputs.logits.argmax(dim=-1)
-                print("pred", predictions)
-                print("labels", labels)
+                # print("pred", predictions)
+                # print("labels", labels)
 
                 dev_acc += (predictions == labels).cpu().sum().item()
 
@@ -192,10 +185,9 @@ def train():
         if dev_loss < best_dev_loss:
             best_dev_loss = best_dev_loss
             # best_state_dict = deepcopy(model.state_dict())
-            if args.ckpt_path is not None:
-                model.save_pretrained(args.ckpt_path)
+            if args.model_path is not None:
+                model.save_pretrained(args.model_path)
 
-    
     
 def parse_args() -> Namespace:
     parser = ArgumentParser()
@@ -203,13 +195,19 @@ def parse_args() -> Namespace:
         "--model_name_or_path",
         type=str,
         help="model name or path",
-        default="bert-base-chinese"
+        # default="bert-base-chinese",
+        # default="hfl/chinese-bert-wwm-ext",
+        # default="hfl/chinese-macbert-base",
+        default="hfl/chinese-roberta-wwm-ext"
     )
     parser.add_argument(
         "--tokenizer_name",
         type=str,
         help="Tokenizer name",
-        default="bert-base-chinese"
+        # default="bert-base-chinese",
+        # default="hfl/chinese-bert-wwm-ext",
+        # default="hfl/chinese-macbert-base",
+        default="hfl/chinese-roberta-wwm-ext"
     )
     parser.add_argument(
         "--data_dir",
@@ -218,33 +216,32 @@ def parse_args() -> Namespace:
         default="./data/",
     )
     parser.add_argument(
-        "--ckpt_path",
+        "--model_path",
         type=Path,
-        help="Directory to save the checkpoints.",
-        default="./.ckpt/MC/models/",
+        help="Directory to save the model.",
+        default="./ckpt/MC/models/",
     )
     parser.add_argument(
         "--tokenizer_path",
         type=Path,
         help="Path to save the tokenizer.",
-        default="./.ckpt/MC/tokenizer/",
+        default="./ckpt/tokenizer/MC",
     )
-    
     
     # data
     parser.add_argument("--max_length", type=int, default=384, help="Tokenize max length")
 
     # model
-    parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to use.")
+    # parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to use.")
 
     # optimizer
     parser.add_argument("--lr", type=float, default=3e-5)
-    parser.add_argument(
-        "--max_train_steps",
-        type=int,
-        default=None,
-        help="Total number of training steps to perform. If provided, overrides num_train_epochs.",
-    )
+    # parser.add_argument(
+    #     "--max_train_steps",
+    #     type=int,
+    #     default=None,
+    #     help="Total number of training steps to perform. If provided, overrides num_train_epochs.",
+    # )
     parser.add_argument(
         "--accum_steps",
         type=int,
@@ -268,9 +265,9 @@ def parse_args() -> Namespace:
 if __name__ == "__main__":
     
     args = parse_args()
-    args.ckpt_path.mkdir(parents=True, exist_ok=True)
+    args.model_path.mkdir(parents=True, exist_ok=True)
 
-    accelerator = Accelerator()
+    # accelerator = Accelerator()
     
     train()
     
