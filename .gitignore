@@ -5,3 +5,5 @@ HW7_ChineseQA/
 */results/
 multiple-choice/
 question-answering/
+
+__pycache__/
