@@ -1,17 +1,12 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
-from tabnanny import process_tokens
-from typing import Optional, Union
-import os
-import logging
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
 import json
-import math
 
 from datasets import DatasetDict, load_dataset, Dataset, load_metric
-from accelerate import Accelerator
-from transformers import (AutoModelForQuestionAnswering, AutoTokenizer, EvalPrediction,
+
+from transformers import (AutoConfig, AutoModelForQuestionAnswering, AutoTokenizer, EvalPrediction,
                           default_data_collator, 
                           get_cosine_schedule_with_warmup,
                           SchedulerType, get_linear_schedule_with_warmup)
@@ -211,11 +206,9 @@ def plot_curve(curve, title, legend, output_name):
     plt.savefig(args.plot_dir / output_name)
     plt.clf()
 
-
 def plot_EM_loss_curve(em_curve, loss_curve):
     plot_curve(em_curve, "EM curve", "exact match", "EM_CURVE.png")
     plot_curve(loss_curve, "Loss curve", "Loss", "LOSS_CURVE.png")
-    
 
 def read_dataset():
     # Get Context
@@ -248,7 +241,6 @@ def read_dataset():
     dataset = DatasetDict(dataset_dict)
     
     return dataset
-
 
 def post_processing_function(examples, features, predictions, stage="eval"):
     # Post-processing: we match the start logits and end logits to answers in the original context.
@@ -287,10 +279,15 @@ def train():
     eval_dataloader = DataLoader(eval_dataset_for_model, shuffle=False, collate_fn=data_collator, batch_size=args.batch_size)
     
     # Train
-    model = AutoModelForQuestionAnswering.from_pretrained(args.model_name_or_path,)
+    # model = AutoModelForQuestionAnswering.from_pretrained(args.model_name_or_path,)
+    # model = AutoModelForQuestionAnswering.from_pretrained("./ckpt/QA/best")
+    config = AutoConfig.from_pretrained(args.model_name_or_path)
+    model = AutoModelForQuestionAnswering.from_config(config)
     model.resize_token_embeddings(len(tokenizer))
     model.to(args.device)
-    
+
+    # print(model)
+    # return
     ## optimizer
     ## Split weights in two groups, one with weight decay and the other not.
     # no_decay = ["bias", "LayerNorm.weight"]
@@ -315,7 +312,6 @@ def train():
     
     print("Start Training")
     best_exact_match = 0.0
-    best_dev_loss = float('inf')
     EM_curve = []
     loss_curve = []
     for epoch in range(args.num_epoch):
@@ -327,7 +323,7 @@ def train():
 
             outputs = model(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, start_positions=start_pos, end_positions=end_pos)
             loss = outputs.loss
-            
+
             # train_loss += loss.detach().float()
             loss = loss / args.accum_steps
             loss.backward()
@@ -340,7 +336,7 @@ def train():
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
-        
+
         model.eval()
         dev_loss = 0.0
         all_start_logits = []
@@ -353,7 +349,7 @@ def train():
                 outputs = model(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask, start_positions= start_pos, end_positions=end_pos)
                 loss = outputs.loss
                 dev_loss += loss.detach().item()
-                
+
                 # outputs start end
                 start_logits = outputs.start_logits
                 end_logits = outputs.end_logits
@@ -385,12 +381,6 @@ def train():
 
         if best_exact_match < predict_metric["exact_match"]:
             best_exact_match = predict_metric["exact_match"]
-            if args.model_path is not None:
-                save_name = str(args.model_path) + "_em"
-                model.save_pretrained(save_name)
-        
-        if best_dev_loss < dev_loss:
-            best_dev_loss = dev_loss
             if args.model_path is not None:
                 model.save_pretrained(args.model_path)
 
@@ -470,13 +460,13 @@ def parse_args() -> Namespace:
     )
 
     # data loader
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=24)
 
     # training
     parser.add_argument(
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cuda"
     )
-    parser.add_argument("--num_epoch", type=int, default=3)
+    parser.add_argument("--num_epoch", type=int, default=5)
     
     # post processing
     parser.add_argument("--output_dir", type=str, default=None, help="Where to store the final model.")
@@ -511,8 +501,6 @@ if __name__ == "__main__":
     args = parse_args()
     args.model_path.mkdir(parents=True, exist_ok=True)
     args.plot_dir.mkdir(parents=True, exist_ok=True)
-
-    # accelerator = Accelerator()
     
     train()
     

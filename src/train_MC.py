@@ -52,24 +52,33 @@ def preprocess(dataset, context):
 
 def read_dataset():
     # Get Context
-    context_file = str((args.data_dir / "context.json").resolve())
-    with open(context_file, encoding="utf-8") as f:
+    with open(args.context_file, encoding="utf-8") as f:
         context = json.load(f)
     
     # load train and valid json
-    tmp_files = ["train.json", "valid.json"]
     dataset_dict = dict()
-    for file in tmp_files:
-        tmp = str((args.data_dir / file).resolve())
-        with open(tmp, encoding="utf-8") as f:
-            tmp_json = json.load(f)
-            pd_dict = pd.DataFrame.from_dict(tmp_json)
+    with open(args.train_file, encoding="utf-8") as f:
+        tmp_json = json.load(f)
+        pd_dict_train = pd.DataFrame.from_dict(tmp_json)
+        for idx, data in enumerate(tmp_json):
+            tmp_json[idx]["context"] = context[data["relevant"]]
 
-        pd_dataset = Dataset.from_pandas(pd_dict)
-        name = file.split(".")[0]
-        dataset_dict[name] = pd_dataset
+        pd_dict_train = pd.DataFrame.from_dict(tmp_json)
+                
+    with open(args.valid_file, encoding="utf-8") as f:
+        tmp_json = json.load(f)
+        for idx, data in enumerate(tmp_json):
+            tmp_json[idx]["context"] = context[data["relevant"]]
+            
+        pd_dict_val = pd.DataFrame.from_dict(tmp_json)
+
+    pd_dataset_train = Dataset.from_pandas(pd_dict_train)
+    pd_dataset_val = Dataset.from_pandas(pd_dict_val)
     
+    dataset_dict["train"] = pd_dataset_train
+    dataset_dict["validation"] = pd_dataset_val
     dataset = DatasetDict(dataset_dict)
+
     return context, dataset
 
 
@@ -210,12 +219,6 @@ def parse_args() -> Namespace:
         default="hfl/chinese-roberta-wwm-ext"
     )
     parser.add_argument(
-        "--data_dir",
-        type=Path,
-        help="Directory to the dataset.",
-        default="./data/",
-    )
-    parser.add_argument(
         "--model_path",
         type=Path,
         help="Directory to save the model.",
@@ -227,7 +230,24 @@ def parse_args() -> Namespace:
         help="Path to save the tokenizer.",
         default="./ckpt/tokenizer/MC",
     )
-    
+    parser.add_argument(
+        "--context_file",
+        type=Path,
+        help="Context json file",
+        default="./data/context.json",
+    )
+    parser.add_argument(
+        "--train_file",
+        type=Path,
+        help="Context json file",
+        default="./data/train.json",
+    )
+    parser.add_argument(
+        "--valid_file",
+        type=Path,
+        help="Validation json file",
+        default="./data/valid.json",
+    )
     # data
     parser.add_argument("--max_length", type=int, default=384, help="Tokenize max length")
 

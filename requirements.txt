@@ -5,9 +5,7 @@
 #    pip-compile requirements.in
 #
 absl-py==1.0.0
-    # via
-    #   tensorboard
-    #   tensorflow
+    # via tensorboard
 accelerate==0.6.1
     # via -r requirements.in
 aiohttp==3.8.1
@@ -16,8 +14,6 @@ aiohttp==3.8.1
     #   fsspec
 aiosignal==1.2.0
     # via aiohttp
-astunparse==1.6.3
-    # via tensorflow
 async-timeout==4.0.2
     # via aiohttp
 attrs==21.4.0
@@ -69,22 +65,14 @@ fsspec[http]==2022.3.0
     #   pytorch-lightning
 future==0.18.2
     # via pytorch-lightning
-gast==0.3.3
-    # via tensorflow
 google-auth==2.6.3
     # via
     #   google-auth-oauthlib
     #   tensorboard
 google-auth-oauthlib==0.4.6
     # via tensorboard
-google-pasta==0.2.0
-    # via tensorflow
 grpcio==1.44.0
-    # via
-    #   tensorboard
-    #   tensorflow
-h5py==2.10.0
-    # via tensorflow
+    # via tensorboard
 huggingface-hub==0.5.1
     # via
     #   datasets
@@ -102,8 +90,6 @@ joblib==1.1.0
     #   nltk
     #   sacremoses
     #   scikit-learn
-keras-preprocessing==1.1.2
-    # via tensorflow
 langcodes==3.3.0
     # via spacy
 markdown==3.3.6
@@ -129,9 +115,6 @@ numpy==1.18.5
     #   accelerate
     #   blis
     #   datasets
-    #   h5py
-    #   keras-preprocessing
-    #   opt-einsum
     #   pandas
     #   pyarrow
     #   pytorch-lightning
@@ -139,14 +122,11 @@ numpy==1.18.5
     #   scipy
     #   spacy
     #   tensorboard
-    #   tensorflow
     #   thinc
     #   torchmetrics
     #   transformers
 oauthlib==3.2.0
     # via requests-oauthlib
-opt-einsum==3.3.0
-    # via tensorflow
 packaging==21.3
     # via
     #   datasets
@@ -166,9 +146,7 @@ preshed==3.0.6
     #   spacy
     #   thinc
 protobuf==3.20.0
-    # via
-    #   tensorboard
-    #   tensorflow
+    # via tensorboard
 pyarrow==7.0.0
     # via datasets
 pyasn1==0.4.8
@@ -225,23 +203,16 @@ sacremoses==0.0.49
 scikit-learn==1.0.2
     # via -r requirements.in
 scipy==1.4.1
-    # via
-    #   scikit-learn
-    #   tensorflow
+    # via scikit-learn
 sentencepiece==0.1.96
     # via -r requirements.in
 six==1.16.0
     # via
     #   absl-py
-    #   astunparse
     #   google-auth
-    #   google-pasta
     #   grpcio
-    #   h5py
-    #   keras-preprocessing
     #   python-dateutil
     #   sacremoses
-    #   tensorflow
 smart-open==5.2.1
     # via pathy
 spacy==3.2.2
@@ -255,19 +226,11 @@ srsly==2.4.2
     #   spacy
     #   thinc
 tensorboard==2.8.0
-    # via
-    #   pytorch-lightning
-    #   tensorflow
+    # via pytorch-lightning
 tensorboard-data-server==0.6.1
     # via tensorboard
 tensorboard-plugin-wit==1.8.1
     # via tensorboard
-tensorflow==2.3.0
-    # via -r requirements.in
-tensorflow-estimator==2.3.0
-    # via tensorflow
-termcolor==1.1.0
-    # via tensorflow
 thinc==8.0.15
     # via spacy
 threadpoolctl==3.1.0
@@ -316,12 +279,7 @@ wasabi==0.9.1
 werkzeug==2.1.1
     # via tensorboard
 wheel==0.37.1
-    # via
-    #   astunparse
-    #   tensorboard
-    #   tensorflow
-wrapt==1.14.0
-    # via tensorflow
+    # via tensorboard
 xxhash==3.0.0
     # via datasets
 yarl==1.7.2
