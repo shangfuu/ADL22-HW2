@@ -3,7 +3,7 @@ python src/test.py  \
 --test_json "${2}" \
 --pred_file "${3}" \
 --QA_model ./ckpt/QA/hfl_chinese-roberta-wwm-ext/ \
---MC_model ./ckpt/MC/best/ \
+--MC_model ./ckpt/MC/hfl_chinese-roberta-wwm-ext/ \
 --tokenizer ./ckpt/tokenizer/hfl_chinese-roberta-wwm-ext/
 
 
